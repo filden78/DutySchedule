@@ -8,22 +8,10 @@ import java.util.stream.Collectors;
 
 public class Schedule {
 
-
-    private String group;
-
-    public String getGroup() {
-        return group;
-    }
-
-    public void setGroup(String group) {
-        this.group = group;
-    }
-
     private ArrayList<Student> QueuedStudents;
 
 
-    public Schedule(String group, ArrayList<Student> students){
-        this.group = group;
+    public Schedule(ArrayList<Student> students){
         QueuedStudents = new ArrayList<>(students.size());
         QueuedStudents.addAll(students);
     }

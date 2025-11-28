@@ -9,28 +9,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.NavHost
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
-
-import ru.filden.ui.theme.DutyScheduleTheme
 import ru.filden.logic.Schedule
+import ru.filden.logic.ScheduleController
 import ru.filden.logic.Student
 import kotlin.random.Random
 
@@ -42,24 +37,24 @@ class MainActivity : ComponentActivity() {
         Student("123", Random.nextLong(), 4),
         Student("pdf", Random.nextLong(), 5),
         Student("hfgfh", Random.nextLong(), 99))
-    var schedule: Schedule = Schedule("123",students)
 
+    var controller: ScheduleController = ScheduleController(students)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-        Main(schedule)
+        Main(controller)
         }
     }
 }
 @Composable
-fun Main(schedule: Schedule){
+fun Main(controller: ScheduleController){
     val navController = rememberNavController()
     Column {
         navBar(navController)
         NavHost(navController, startDestination = NavRoutes.mainPage.route){
-            composable ( NavRoutes.mainPage.route ){mainPage(schedule)}
-            composable ( NavRoutes.students.route ){students()}
+            composable ( NavRoutes.mainPage.route ){mainPage(controller)}
+            composable ( NavRoutes.students.route ){students(controller)}
             composable ( NavRoutes.qr.route ){qr()}
         }
     }
@@ -73,8 +68,8 @@ fun navBar(navController: NavController){
     }
 }
 @Composable
-fun mainPage(schedule: Schedule){
-    val message = remember { mutableStateOf(schedule.firstDutyStudent) }
+fun mainPage(controller: ScheduleController){
+    val message = remember { mutableStateOf(controller.getSchedule().firstDutyStudent) }
 
     Surface(Modifier.fillMaxSize().padding(top=150.dp, bottom = 150.dp, start = 50.dp, end = 50.dp)) {
         Column {
@@ -82,18 +77,17 @@ fun mainPage(schedule: Schedule){
                 text = "Следующий дежурный: \n" + message.value.name, fontSize = 22.sp
             )
             Button(
-                onClick = { schedule.completeDutyStudent(schedule.firstDutyStudent,
+                onClick = { controller.getSchedule().completeDutyStudent(controller.getSchedule().firstDutyStudent,
                     true)
-                    message.value=schedule.firstDutyStudent},
+                    message.value=controller.getSchedule().firstDutyStudent},
                 modifier = Modifier.padding(end = 10.dp)
             ) {
                 Text("Продежурил", fontSize = 25.sp)
             }
             Button(onClick = {
-                schedule.completeDutyStudent(
-                    schedule.firstDutyStudent,
+                controller.getSchedule().completeDutyStudent(controller.getSchedule().firstDutyStudent,
                     false)
-                message.value=schedule.firstDutyStudent
+                message.value=controller.getSchedule().firstDutyStudent
             }) {
                 Text("Не продежурил", fontSize = 25.sp)
             }
@@ -103,8 +97,15 @@ fun mainPage(schedule: Schedule){
 }
 
 @Composable
-fun students(){
-
+fun students(controller: ScheduleController){
+    Column() {
+        for (student  in controller.getStudents()){
+            Row(){
+                Text(text = student.name)
+                Text(text = student.priority.toString())
+            }
+        }
+    }
 }
 @Composable
 fun qr(){
