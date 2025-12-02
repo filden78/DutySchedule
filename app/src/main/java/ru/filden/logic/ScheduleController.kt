@@ -15,4 +15,5 @@ class ScheduleController{
     fun getSchedule(): Schedule{
         return schedule
     }
+
 }

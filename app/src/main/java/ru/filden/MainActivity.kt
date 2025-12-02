@@ -24,23 +24,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
-import ru.filden.logic.Schedule
+import ru.filden.logic.resourceManager
 import ru.filden.logic.ScheduleController
 import ru.filden.logic.Student
 import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
-
-    var students = arrayListOf<Student>(Student("loh", Random.nextLong(), 1),
-        Student("asd", Random.nextLong(), 2),
-        Student("qwe", Random.nextLong(), 3),
-        Student("123", Random.nextLong(), 4),
-        Student("pdf", Random.nextLong(), 5),
-        Student("hfgfh", Random.nextLong(), 99))
-
-    var controller: ScheduleController = ScheduleController(students)
+    var mng = resourceManager()
+    var controller: ScheduleController = ScheduleController(resourceManager.getStudentsFromJson(resourceManager.LoadJsonString("students.json")) as ArrayList<Student>)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+
         enableEdgeToEdge()
         setContent {
         Main(controller)
