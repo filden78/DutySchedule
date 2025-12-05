@@ -3,30 +3,42 @@ package ru.filden.logic;
 public class Student {
 
 
-    private final String name;
-    private final long UUID;
-    private int priority;
 
-    public Student(String name, long uuid, int priority){
+
+    private  String name;
+    private final long UUID;
+    private int countDuty;
+
+    public Student(String name, long uuid, int countDuty){
         this.name = name;
         this.UUID = uuid;
+        this.countDuty = countDuty;
 
-        if(priority==0) this.priority = 1;
-        else this.priority = priority;
     }
 
     public String getName() {
         return name;
     }
-    public int getPriority() {
-        return priority;
+    public int getcountDuty() {
+        return countDuty;
     }
     public long getUUID() {
         return UUID;
     }
-
-    public Student setPriority(int priority) {
-        this.priority = priority;
+    public Student setName(String name) {
+        this.name = name;
         return this;
+    }
+
+    public Student setCountDuty(int priority) {
+        this.countDuty = priority;
+        return this;
+    }
+    public Student increnment(){
+        this.countDuty++;
+        return this;
+    }
+    public Schedule.Pair PairOf(Student second){
+        return new Schedule.Pair(this, second);
     }
 }

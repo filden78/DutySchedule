@@ -1,72 +1,65 @@
 package ru.filden.logic;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class Schedule {
+    private ArrayList<Student> students;
+    private Pair currentPair;
 
-    private ArrayList<Student> QueuedStudents;
-
-
-    public Schedule(ArrayList<Student> students){
-        QueuedStudents = new ArrayList<>(students.size());
-        QueuedStudents.addAll(students);
-    }
-
-    private void updatePriority(){
+    public Schedule(ArrayList<Student> s){
         ArrayList<Student> temp = new ArrayList<>();
-        QueuedStudents.stream()
-                .filter(s->s.getPriority()!=99)
-                .sorted(Comparator.comparingInt(Student::getPriority))
+        s.stream().sorted(Comparator.comparingInt(Student::getcountDuty))
                 .forEach(temp::add);
-        QueuedStudents.clear();
-        QueuedStudents.addAll(temp);
+        this.students = temp;
+        currentPair = students.get(0).PairOf(students.get(1));
     }
-    private void decrementPriority(ArrayList<Student> s){
-        for(int i = 1; i<s.size();i++){
-            s.set(i, s.get(i).setPriority(s.get(i).getPriority()-1));
+    private void updateStudent(){
+        ArrayList<Student> temp = new ArrayList<>();
+        students.stream().sorted(Comparator.comparingInt(Student::getcountDuty))
+                .forEach(temp::add);
+        students.clear();
+        students = temp;
+
+    }
+    private void updateCurrentPair(){
+        currentPair = students.get(0).PairOf(students.get(1));
+    }
+
+    public Pair getCurrentPair() {
+        return currentPair;
+    }
+
+    public void putCurrentPair(Pair p){
+        currentPair = p;
+    }
+    public void completeDuty(Pair p){
+        processDutyStudent(p.getFirst());
+        processDutyStudent(p.getSecond());
+    }
+    private void processDutyStudent(Student s){
+        s.increnment();
+        updateStudent();
+        updateCurrentPair();
+    }
+
+    public ArrayList<Student> getStudents(){
+        return students;
+    }
+
+    public static class Pair{
+        private final Student first;
+        private final Student second;
+        Pair(Student s1, Student s2){
+            first=s1;
+            second=s2;
         }
-    }
-    private int getMaxPriority() {
-        return QueuedStudents.stream()
-                .filter(s -> s.getPriority() < 99)
-                .mapToInt(Student::getPriority)
-                .max()
-                .orElse(0);
-    }
 
-    //main
-    public Student getFirstDutyStudent(){
-        return QueuedStudents.get(0);
-    }
-    public Student getSecondDutyStudent(){
-        return QueuedStudents.get(1);
-    }
-    public boolean completeDutyStudent(Student student, Boolean IsDuty){
-        if(student.getPriority()<99 && IsDuty){
-            student.setPriority(getMaxPriority()+1);
-            updatePriority();
-            decrementPriority(QueuedStudents);
-            return true;
+        public Student getFirst() {
+            return first;
         }
-        else {
-            student.setPriority(getSecondDutyStudent().getPriority() + 1);
-            updatePriority();
-            return false;
+
+        public Student getSecond() {
+            return second;
         }
-    }
-
-
-
-    //serialization
-    public Map<Integer, String> getFullSchedule(){
-        return QueuedStudents.stream()
-                .collect(Collectors.toMap(Student::getPriority, Student::getName));
-    }
-    public List<Student> getStudents(){
-        return new ArrayList<>(QueuedStudents);
     }
 }

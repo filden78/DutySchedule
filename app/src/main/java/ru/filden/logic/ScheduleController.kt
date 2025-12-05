@@ -5,6 +5,9 @@ class ScheduleController{
     constructor(_students: ArrayList<Student>){
         schedule = Schedule(_students)
     }
+    constructor(schedule: Schedule){
+        this.schedule = schedule
+    }
     fun getStudents(): ArrayList<Student>{
         return schedule.students as ArrayList<Student>
     }
