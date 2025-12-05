@@ -30,10 +30,15 @@ import ru.filden.logic.Student
 import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
+
+    var isl = true
+
     var mng = resourceManager()
+
     var controller: ScheduleController = ScheduleController(resourceManager.getStudentsFromJson(resourceManager.LoadJsonString("students.json")) as ArrayList<Student>)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
 
 
         enableEdgeToEdge()
