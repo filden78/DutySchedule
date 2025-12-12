@@ -1,12 +1,12 @@
 package ru.filden
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,43 +15,44 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
+import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.constraintlayout.compose.ChainStyle
+import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import ru.filden.logic.Schedule
 
-import ru.filden.logic.resourceManager
+import ru.filden.logic.Schedule
 import ru.filden.logic.ScheduleController
 import ru.filden.logic.Student
-import java.util.ArrayList
-import java.util.Random
-
 
 class MainActivity : ComponentActivity() {
 
     var schedule:  Schedule = Schedule(arrayListOf(
-        Student("qwe", kotlin.random.Random.nextLong(),0),
-        Student("asd", kotlin.random.Random.nextLong(),0),
-        Student("zxc", kotlin.random.Random.nextLong(),1),
-        Student("123", kotlin.random.Random.nextLong(),2),
-        Student("ert", kotlin.random.Random.nextLong(),1),
-        Student("dfg", kotlin.random.Random.nextLong(),3)))
+        Student("qwe", 1,0),
+        Student("asd", 2,0),
+        Student("zxc", 3,1),
+        Student("123", 4,2),
+        Student("ert", 5,1),
+        Student("dfg", 6,3)))
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -76,9 +77,15 @@ fun Main(schedule: Schedule){
 @Composable
 fun navBar(navController: NavController){
     Row(Modifier.padding(top=80.dp)){
-        Text("Дежурные", Modifier.clickable{navController.navigate(NavRoutes.mainPage.route)}.weight(0.28f), fontSize = 22.sp)
-        Text("Редактирование", Modifier.clickable{navController.navigate(NavRoutes.students.route)}.weight(0.52f), fontSize = 22.sp)
-        Text("QR", Modifier.clickable{navController.navigate(NavRoutes.qr.route)}.weight(0.20f), fontSize = 22.sp)
+        Text("Дежурные", Modifier
+            .clickable { navController.navigate(NavRoutes.mainPage.route) }
+            .weight(0.28f), fontSize = 22.sp)
+        Text("Редактирование", Modifier
+            .clickable { navController.navigate(NavRoutes.students.route) }
+            .weight(0.52f), fontSize = 22.sp)
+        Text("QR", Modifier
+            .clickable { navController.navigate(NavRoutes.qr.route) }
+            .weight(0.20f), fontSize = 22.sp)
     }
 }
 @Composable
@@ -86,7 +93,9 @@ fun mainPage(controller: ScheduleController){
     val pair = remember { mutableStateOf(controller.getSchedule().currentPair) }
     val message = remember { mutableStateOf(pair.value.first.name +"\n"+pair.value.second.name) }
 
-    Surface(Modifier.fillMaxSize().padding(top=150.dp, bottom = 150.dp, start = 50.dp, end = 50.dp)) {
+    Surface(Modifier
+        .fillMaxSize()
+        .padding(top = 150.dp, bottom = 150.dp, start = 50.dp, end = 50.dp)) {
         Column {
             Text(
                 text = "Следующие дежурные: \n${message.value}", fontSize = 22.sp
@@ -107,46 +116,114 @@ fun mainPage(controller: ScheduleController){
 
 
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun students(controller: ScheduleController) {
-    val curValues = remember { mutableStateListOf<Student>() }
-    for (student in controller.getStudents()) {
-        curValues.add(student);
+    val dialog = remember { mutableStateOf(false) }
+    val students = remember { mutableStateOf(controller.getSchedule().students) }
+    val edit = remember { mutableStateOf(false) }
+    var column: Unit
+    if(!edit.value) {
+         column = LazyColumn {
+            items(students.value.size) { index ->
+                Row {
+                    Text(
+                        text = students.value[index].uuid.toString(),
+                        fontSize = 22.sp,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                    Text(
+                        text = students.value[index].name,
+                        fontSize = 22.sp,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                    Text(
+                        text = students.value[index].getcountDuty()
+                            .toString(), fontSize = 22.sp,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+            item {
+                Surface(Modifier) {
+                    Row(Modifier, horizontalArrangement = Arrangement.Center) {
+                        Button(onClick = { dialog.value = true }) { Text(text = "Добавить") }
+                        Button(onClick = { edit.value = true }) { Text(text = "Изменить") }
+                    }
+                }
+            }
+        }
     }
-    val newValues = remember { mutableStateListOf<Student>() }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        items(curValues.size) { index ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(text = curValues[index].uuid.toString())
-                TextField(
-                    value = curValues[index].name,
-                    onValueChange = { value -> newValues.add(curValues[index].setName(value)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                )
-                TextField(
-                    value = curValues[index].getcountDuty().toString(),
-                    onValueChange = { value -> newValues.add(curValues[index].setCountDuty(value.toInt())) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
-        }
-        item {
+    if (edit.value){
+        val temp = students.value
+        column = LazyColumn {
+            items(temp.size) { index ->
+                Row {
+                    Text(
+                        text = temp[index].uuid.toString(),
+                        modifier = Modifier.padding(16.dp)
+                    )
+                    TextField(
+                        value = temp[index].name,
+                        onValueChange = {temp[index].name =it},
+                        modifier = Modifier.padding(16.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    TextField(
+                        value = temp[index].getcountDuty()
+                            .toString(),
+                        onValueChange = {temp[index].setCountDuty(it.toInt())},
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.padding(16.dp)
 
-            Button(onClick = {
-                val temp: kotlin.collections.ArrayList<Student> = arrayListOf()
-                for (s in newValues)
-                    temp.add(s)
-                controller.setStudents(temp)
-            }) {
-                Text(text = "Сохранить")
+                    )
+                }
+            }
+            item {
+                Surface(Modifier) {
+                    Button(onClick = {
+                        edit.value = false
+                        students.value = temp
+                    }) { Text(text = "Сохранить")}
+                }
             }
         }
+    }
+    if(dialog.value){
+        val id = remember{ mutableStateOf("") }
+        val name = remember{mutableStateOf("")}
+        val count = remember{ mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { dialog.value = false },
+            title = {Text(text="Добавление студента")},
+            text = {
+                Column(Modifier.fillMaxWidth()) {
+                    OutlinedTextField( modifier = Modifier.padding(15.dp),
+                        value = id.value,
+                        onValueChange = { newText -> id.value = newText },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(modifier = Modifier.padding(15.dp),
+                        value = name.value ,
+                        onValueChange = { newText -> name.value = newText },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                    )
+                    OutlinedTextField(modifier = Modifier.padding(15.dp),
+                        value=count.value,
+                        onValueChange = { newText -> count.value = newText },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                }
+            },
+            confirmButton = {
+                Button(onClick = {dialog.value = false
+                    controller.getSchedule().students.add(Student(name.value, id.value.toInt(), count.value.toInt()))
+                }) {
+                    Text("Добавить")
+                }
+            }
+        )
     }
 }
-
 
 @Composable
 fun qr(){
