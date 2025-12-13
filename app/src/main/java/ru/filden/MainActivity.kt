@@ -12,10 +12,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -27,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,12 +52,12 @@ import java.util.Random
 class MainActivity : ComponentActivity() {
 
     var schedule:  Schedule = Schedule(arrayListOf(
-        Student("qwe", kotlin.random.Random.nextLong(),0),
-        Student("asd", kotlin.random.Random.nextLong(),0),
-        Student("zxc", kotlin.random.Random.nextLong(),1),
-        Student("123", kotlin.random.Random.nextLong(),2),
-        Student("ert", kotlin.random.Random.nextLong(),1),
-        Student("dfg", kotlin.random.Random.nextLong(),3)))
+        Student("qwe", 1,0),
+        Student("asd", 2,0),
+        Student("zxc", 3,1),
+        Student("123", 4,2),
+        Student("ert", 5,1),
+        Student("dfg", 6,3)))
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -109,44 +115,45 @@ fun mainPage(controller: ScheduleController){
 
 @Composable
 fun students(controller: ScheduleController) {
-    val curValues = remember { mutableStateListOf<Student>() }
-    for (student in controller.getStudents()) {
-        curValues.add(student);
-    }
-    val newValues = remember { mutableStateListOf<Student>() }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        items(curValues.size) { index ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(text = curValues[index].uuid.toString())
+    val students = remember { mutableStateListOf<Student>() }
+    students.addAll(controller.getStudents())
+    val enable = remember { mutableStateOf(false) }
+    LazyColumn {
+        items(students.size) { index ->
+            Row{
+                Text(text = students[index].uuid.toString(), Modifier.padding(8.dp, top = 32.dp, end = 8.dp, bottom = 32.dp))
                 TextField(
-                    value = curValues[index].name,
-                    onValueChange = { value -> newValues.add(curValues[index].setName(value)) },
+                    value = students[index].name,
+                    onValueChange = { students[index].name = it },
+                    Modifier.padding(16.dp).size(width = 160.dp, height = 60.dp),
+                    enabled = enable.value,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+
                 )
                 TextField(
-                    value = curValues[index].getcountDuty().toString(),
-                    onValueChange = { value -> newValues.add(curValues[index].setCountDuty(value.toInt())) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
-        }
-        item {
+                    value = students[index].getcountDuty().toString(),
+                    onValueChange = { students[index].setCountDuty(it.toIntOrNull() as Int) },
+                    modifier = Modifier.padding(16.dp).size(width = 80.dp, height = 60.dp),
+                    enabled = enable.value,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
 
-            Button(onClick = {
-                val temp: kotlin.collections.ArrayList<Student> = arrayListOf()
-                for (s in newValues)
-                    temp.add(s)
-                controller.setStudents(temp)
-            }) {
-                Text(text = "Сохранить")
+                )
+                IconButton(
+                    onClick = {students.remove(students[index])
+                                     controller.setStudents(ArrayList(students))},
+                    Modifier.padding(16.dp),
+                    enabled = enable.value,)
+                {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = "Удалить"
+                    )
+                }
             }
         }
     }
-}
 
+}
 
 @Composable
 fun qr(){

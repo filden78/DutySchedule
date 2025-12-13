@@ -6,10 +6,10 @@ public class Student {
 
 
     private  String name;
-    private final long UUID;
+    private final int UUID;
     private int countDuty;
 
-    public Student(String name, long uuid, int countDuty){
+    public Student(String name, int uuid, int countDuty){
         this.name = name;
         this.UUID = uuid;
         this.countDuty = countDuty;
@@ -22,7 +22,7 @@ public class Student {
     public int getcountDuty() {
         return countDuty;
     }
-    public long getUUID() {
+    public int getUUID() {
         return UUID;
     }
     public Student setName(String name) {
