@@ -2,14 +2,14 @@ package ru.filden.logic
 
 class Schedule(initialStudents: List<Student>) {
     private val _students = initialStudents.sortedBy { it.countDuty }.toMutableList()
-    private var _currentPair: Pair = Pair(_students[0], _students[1])
+    private var _currentPair: Pair = if (_students.size >= 2) Pair(_students[0], _students[1])
+    else throw IllegalStateException("Need at least 2 students")
 
-    val students: MutableList<Student>
-        get() = _students.toMutableList()
+    val students: List<Student>
+        get() = _students.toList()
 
-    var currentPair: Pair
+    val currentPair: Pair
         get() = _currentPair
-        set(value) { _currentPair = value }
 
     fun completeDuty(pair: Pair) {
         _students.replaceAll { student ->
@@ -18,18 +18,42 @@ class Schedule(initialStudents: List<Student>) {
                 else -> student
             }
         }
-
-        // Сортируем заново
         _students.sortBy { it.countDuty }
-        _currentPair = Pair(_students[0], _students[1])
+        updateCurrentPair()
     }
-    fun getStudentOnName(string: String): Student? {
-        for(stud in _students){
-            if(stud.name.equals(string)){
-                return stud
-            }
+
+    private fun updateCurrentPair() {
+        _currentPair = if (_students.size >= 2) Pair(_students[0], _students[1])
+        else throw IllegalStateException("Need at least 2 students")
+    }
+
+    fun findStudentById(id: Int): Student? = _students.find { it.uuid == id }
+
+    fun findStudentByName(name: String): Student? = _students.find { it.name.equals(name, ignoreCase = true) }
+
+    fun addStudent(student: Student) {
+        _students.add(student)
+        _students.sortBy { it.countDuty }
+        updateCurrentPair()
+    }
+
+    fun removeStudentById(id: Int): Boolean {
+        val removed = _students.removeAll { it.uuid == id }
+        if (removed && _students.isNotEmpty()) {
+            _students.sortBy { it.countDuty }
+            updateCurrentPair()
         }
-        return null
+        return removed
+    }
+
+    fun updateStudent(updatedStudent: Student): Boolean {
+        val index = _students.indexOfFirst { it.uuid == updatedStudent.uuid }
+        return if (index != -1) {
+            _students[index] = updatedStudent
+            _students.sortBy { it.countDuty }
+            updateCurrentPair()
+            true
+        } else false
     }
 
     data class Pair(var first: Student, var second: Student)

@@ -5,212 +5,610 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import ru.filden.logic.Schedule
-
 import ru.filden.logic.ScheduleController
 import ru.filden.logic.Student
-
+import ru.filden.logic.UserRole
 
 class MainActivity : ComponentActivity() {
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
-
-        val controller = ScheduleController()
-        var schedule: MutableState<Schedule>
-
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
-            val group = intent.getStringExtra("currentGroup")?: "1"
-            schedule = remember { mutableStateOf(Schedule( controller.getStudents(group))) }
-            Main(controller, group, schedule)
+            val controller = remember { ScheduleController() }
+            val currentGroup = intent.getStringExtra("currentGroup") ?: "1"
+            val userRole = intent.getStringExtra("userRole")?.let {
+                UserRole.valueOf(it)
+            } ?: UserRole.STUDENT
+
+            MainApp(controller, currentGroup, userRole)
         }
     }
 }
-
 @Composable
-fun Main(scheduleController: ScheduleController, group: String, schedule: MutableState<Schedule>){
+fun MainApp(
+    controller: ScheduleController,
+    initialGroup: String,
+    userRole: UserRole
+) {
     val navController = rememberNavController()
-    Column {
-        navBar(navController)
-        NavHost(navController, startDestination = NavRoutes.mainPage.route){
-            composable ( NavRoutes.mainPage.route ){mainPage(scheduleController,group,schedule)}
-            composable ( NavRoutes.students.route ){students(scheduleController,group,schedule)}
-        }
-    }
-}
-@Composable
-fun navBar(navController: NavController){
+    var currentGroup by remember { mutableStateOf(initialGroup) }
+    val context = LocalContext.current
 
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 50.dp)){
-        Column(Modifier.padding(horizontal = 50.dp)) {
-            Text("Дежурства", Modifier.clickable(true, onClick = {navController.navigate(NavRoutes.mainPage.route)}))
+    Scaffold(
+        topBar = {
+            MainTopBar(
+                userRole = userRole,
+                currentGroup = currentGroup,
+                onGroupChange = { newGroup -> currentGroup = newGroup },
+                canChangeGroup = userRole == UserRole.TEACHER,
+                onBack = { (context as? android.app.Activity)?.finish() }
+            )
         }
-        Column(Modifier.padding(horizontal = 50.dp)) {
-            Text("Студенты",Modifier.clickable(true, onClick = {navController.navigate(NavRoutes.students.route)}))
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            NavBar(navController, userRole)
+
+            NavHost(
+                navController = navController,
+                startDestination = NavRoutes.MainPage.route
+            ) {
+                composable(NavRoutes.MainPage.route) {
+                    MainPage(
+                        controller = controller,
+                        groupId = currentGroup,
+                        userRole = userRole
+                    )
+                }
+                composable(NavRoutes.Students.route) {
+                    StudentsPage(
+                        controller = controller,
+                        groupId = currentGroup,
+                        userRole = userRole
+                    )
+                }
+            }
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun mainPage(scheduleController: ScheduleController, group: String, schedule: MutableState<Schedule>) {
-    val students =
-        remember { mutableStateListOf<Student>().apply { addAll(schedule.value.students) } }
-    var expanded1 by remember { mutableStateOf(false) }
+fun MainTopBar(
+    userRole: UserRole,
+    currentGroup: String,
+    onGroupChange: (String) -> Unit,
+    canChangeGroup: Boolean,
+    onBack: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val controller = remember { ScheduleController() }
+    val groups = remember { controller.getAllGroups() }
 
-    var expanded2 by remember { mutableStateOf(false) }
-    var pair = remember { mutableStateOf(schedule.value.currentPair) }
-    Column(Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.padding(horizontal = 60.dp, vertical = 20.dp)) {
-            ExposedDropdownMenuBox(
-                expanded = expanded1,
-                onExpandedChange = {
-                    expanded1 = !expanded1
-                }
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val icon = if (expanded1)
-                    Icons.Filled.ArrowDropUp
-                else
-                    Icons.Filled.ArrowDropDown
-                TextField(
-                    label = { },
-                    readOnly = true,
-                    value = pair.value.first.name,
-                    onValueChange = {pair.value.first = schedule.value.getStudentOnName(it)!! },
-                    trailingIcon = {
-                        Icon(
-                            icon, "contentDescription",
-                            Modifier.clickable { expanded1 = !expanded1 })
-                    },
-                    colors = ExposedDropdownMenuDefaults.textFieldColors()
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded1,
-                    onDismissRequest = {
-                        expanded1 = false
-                    }
-                ) {
-                    students.forEach { selectionOption ->
-                        DropdownMenuItem(
-                            text = { Text(text = selectionOption.name) },
-                            onClick = {
-                                pair.value.first = selectionOption
-                                expanded1 = false
-                            }
-                        )
-                    }
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
                 }
+
+                if (canChangeGroup) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .weight(1f)
+                    ) {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded }
+                        ) {
+                            Text(
+                                text = "Группа $currentGroup ▼",
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .clickable { expanded = !expanded }
+                                    .padding(8.dp)
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                groups.forEach { groupId ->
+                                    DropdownMenuItem(
+                                        text = { Text("Группа $groupId") },
+                                        onClick = {
+                                            onGroupChange(groupId)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "Группа $currentGroup",
+                        modifier = Modifier.padding(start = 16.dp)
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    )
+}
+
+@Composable
+fun NavBar(navController: NavController, userRole: UserRole) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        NavButton(
+            text = "Дежурства",
+            onClick = { navController.navigate(NavRoutes.MainPage.route) }
+        )
+        NavButton(
+            text = "Студенты",
+            onClick = { navController.navigate(NavRoutes.Students.route) }
+        )
+    }
+}
+
+@Composable
+fun NavButton(text: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            fontSize = 18.sp
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainPage(
+    controller: ScheduleController,
+    groupId: String,
+    userRole: UserRole
+) {
+    val schedule = controller.getSchedule(groupId)
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    if (schedule == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Расписание для группы $groupId не найдено")
+        }
+        return
+    }
+    var currentPair by remember { mutableStateOf(schedule.currentPair) }
+    val students = remember { mutableStateListOf<Student>().apply { addAll(schedule.students) } }
+
+    LaunchedEffect(schedule.students.hashCode()) {
+        students.clear()
+        students.addAll(schedule.students)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Текущая пара дежурных",
+            fontSize = 24.sp,
+            modifier = Modifier.padding(vertical = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(30.dp))
+        StudentSelector(
+            label = "Первый дежурный",
+            selectedStudent = currentPair.first,
+            students = students,
+            onStudentSelected = if (userRole.canSelectDuty()) {
+                { selected ->
+                    currentPair = Schedule.Pair(selected, currentPair.second)
+                }
+            } else null,
+            readOnly = !userRole.canSelectDuty()
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        StudentSelector(
+            label = "Второй дежурный",
+            selectedStudent = currentPair.second,
+            students = students,
+            onStudentSelected = if (userRole.canSelectDuty()) {
+                { selected ->
+                    currentPair = Schedule.Pair(currentPair.first, selected)
+                }
+            } else null,
+            readOnly = !userRole.canSelectDuty()
+        )
+
+        Spacer(modifier = Modifier.height(40.dp))
+        if (userRole.canConfirmDuty()) {
+            Button(
+                onClick = {
+                    try {
+                        controller.completeDutyInGroup(groupId, currentPair)
+                        controller.getSchedule(groupId)?.let { updatedSchedule ->
+                            currentPair = updatedSchedule.currentPair
+                            students.clear()
+                            students.addAll(updatedSchedule.students)
+                        }
+                    } catch (e: Exception) {
+                        showError = true
+                        errorMessage = e.message ?: "Ошибка при завершении дежурства"
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Продежурили", fontSize = 18.sp)
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Только просмотр. Для подтверждения дежурства нужны права старосты или преподавателя.",
+                    modifier = Modifier.padding(16.dp),
+                    fontSize = 14.sp
+                )
             }
         }
     }
-    Row(modifier = Modifier.padding(horizontal = 60.dp, vertical = 90.dp)) {
-        ExposedDropdownMenuBox(
-            expanded = expanded2,
-            onExpandedChange = {
-                expanded2 = !expanded2
+
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text("Ошибка") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                Button(onClick = { showError = false }) {
+                    Text("OK")
+                }
             }
         )
-        {
-            TextField(
-                label = { },
-                readOnly = true,
-                value = pair.value.second.name,
-                onValueChange = {pair.value.second = schedule.value.getStudentOnName(it)!! },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(
-                        expanded = expanded2
-                    )
-                },
-                colors = ExposedDropdownMenuDefaults.textFieldColors()
-            )
-            ExposedDropdownMenu(
-                expanded = expanded2,
-                onDismissRequest = {
-                    expanded2 = false
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StudentSelector(
+    label: String,
+    selectedStudent: Student,
+    students: List<Student>,
+    onStudentSelected: ((Student) -> Unit)?,
+    readOnly: Boolean = false
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded && !readOnly,
+        onExpandedChange = { if (!readOnly) expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedStudent.name,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = {
+                if (!readOnly) {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                 }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            enabled = !readOnly
+        )
+
+        if (!readOnly) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
             ) {
-                students.forEach { selectionOption ->
+                students.forEach { student ->
                     DropdownMenuItem(
-                        text = { Text(text = selectionOption.name) },
+                        text = {
+                            Text("${student.name} (дежурств: ${student.countDuty})")
+                        },
                         onClick = {
-                            pair.value.second = selectionOption
-                            expanded2 = false
+                            onStudentSelected?.invoke(student)
+                            expanded = false
                         }
                     )
                 }
             }
         }
     }
-    Row(modifier = Modifier.padding(horizontal = 110.dp, vertical = 256.dp)) {
-        Button(
-            onClick = {
-                schedule.value.completeDuty(pair.value)
-            }) {
-            Text("Продежурили")
+}
+
+@Composable
+fun StudentsPage(
+    controller: ScheduleController,
+    groupId: String,
+    userRole: UserRole
+) {
+    val students = remember { mutableStateListOf<Student>() }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var selectedStudent by remember { mutableStateOf<Student?>(null) }
+    var nextId by remember { mutableIntStateOf(100) }
+
+    LaunchedEffect(groupId) {
+        students.clear()
+        students.addAll(controller.getStudents(groupId))
+        nextId = (students.maxOfOrNull { it.uuid } ?: 0) + 1
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Список студентов (${students.size})",
+                fontSize = 20.sp
+            )
+
+            if (userRole.canManageStudents()) {
+                Button(
+                    onClick = { showAddDialog = true }
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Добавить")
+                    Text("Добавить")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyColumn {
+            items(students) { student ->
+                StudentItem(
+                    student = student,
+                    canEdit = userRole.canManageStudents(),
+                    onEdit = {
+                        if (userRole.canManageStudents()) {
+                            selectedStudent = student
+                            showEditDialog = true
+                        }
+                    },
+                    onDelete = {
+                        if (userRole.canManageStudents()) {
+                            if (controller.removeStudentGlobally(student.uuid)) {
+                                students.remove(student)
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 
+    if (showAddDialog && userRole.canManageStudents()) {
+        StudentDialog(
+            title = "Добавить студента",
+            student = Student("", nextId, 0, groupId),
+            onConfirm = { newStudent ->
+                controller.addStudentToGroup(newStudent, groupId)
+                students.clear()
+                students.addAll(controller.getStudents(groupId))
+                nextId++
+                showAddDialog = false
+            },
+            onDismiss = { showAddDialog = false }
+        )
+    }
+
+    if (showEditDialog && selectedStudent != null && userRole.canManageStudents()) {
+        StudentDialog(
+            title = "Редактировать студента",
+            student = selectedStudent!!.copy(),
+            onConfirm = { updatedStudent ->
+                if (controller.updateStudentInGroup(updatedStudent, groupId)) {
+                    val index = students.indexOfFirst { it.uuid == updatedStudent.uuid }
+                    if (index != -1) {
+                        students[index] = updatedStudent
+                    }
+                }
+                showEditDialog = false
+                selectedStudent = null
+            },
+            onDismiss = {
+                showEditDialog = false
+                selectedStudent = null
+            }
+        )
+    }
 }
 
 @Composable
-fun students(scheduleController: ScheduleController, group: String, schedule: MutableState<Schedule>) {
+fun StudentItem(
+    student: Student,
+    canEdit: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = student.name,
+                    fontSize = 18.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                Text(
+                    text = "Дежурств: ${student.countDuty} | ID: ${student.uuid}",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
+            if (canEdit) {
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Редактировать")
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Удалить")
+                    }
+                }
+            }
+        }
+    }
 }
 
-sealed class NavRoutes(val route: String){
-    object mainPage: NavRoutes("mainPage")
-    object students: NavRoutes("students")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StudentDialog(
+    title: String,
+    student: Student,
+    onConfirm: (Student) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(student.name) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Имя студента") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    text = "ID: ${student.uuid} (генерируется автоматически)",
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onConfirm(student.copy(name = name))
+                    }
+                },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
 }
+
+fun UserRole.canSelectDuty(): Boolean = this == UserRole.HEADMAN || this == UserRole.TEACHER
+fun UserRole.canConfirmDuty(): Boolean = this == UserRole.HEADMAN || this == UserRole.TEACHER
+fun UserRole.canManageStudents(): Boolean = this == UserRole.HEADMAN || this == UserRole.TEACHER
+fun UserRole.canChangeGroup(): Boolean = this == UserRole.TEACHER
+
+sealed class NavRoutes(val route: String) {
+    object MainPage : NavRoutes("mainPage")
+    object Students : NavRoutes("students")
+}
+
 @Preview(showBackground = true)
 @Composable
-fun view(){
-    val controller = ScheduleController()
-    Main(controller, "1", remember {  mutableStateOf(Schedule(controller.getStudents("1")))})
+fun PreviewSelectGroup() {
+
 }
